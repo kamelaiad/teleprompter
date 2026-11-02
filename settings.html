@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Settings · Teleprompter</title>
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/teleprompter.css">
+<script src="assets/brand.js"></script>
+</head>
+<body class="home">
+<main>
+  <header class="app-head">
+    <a class="app-logo" href="index.html" data-logo></a>
+    <nav><a href="index.html">Scripts</a><a class="on" href="settings.html">Settings</a></nav>
+  </header>
+
+  <h1>Settings</h1>
+  <p class="status" role="status"></p>
+
+  <section class="setting">
+    <h2>Logo</h2>
+    <div class="brand-row">
+      <div class="preview" data-logo></div>
+      <button class="mood-add" type="button" data-pick><span>Upload a logo, or drop the file here</span></button>
+    </div>
+    <input id="logo" type="file" accept="image/png,image/svg+xml,image/jpeg,image/webp" hidden>
+  </section>
+
+  <section class="setting">
+    <h2>Colors</h2>
+    <label class="swatch">Brand color<input type="color" data-color="brand"><output dir="ltr"></output></label>
+    <label class="swatch">Background<input type="color" data-color="background"><output dir="ltr"></output></label>
+  </section>
+
+  <button class="reset" type="button" data-reset>Back to the original look</button>
+</main>
+<script>
+  (function () {
+    var MAX_LOGO = 1024 * 1024;
+    var TYPES = ['image/png', 'image/svg+xml', 'image/jpeg', 'image/webp'];
+    var status = document.querySelector('.status');
+    var input = document.getElementById('logo');
+    var pick = document.querySelector('[data-pick]');
+    var colors = document.querySelectorAll('[data-color]');
+
+    function say(text) {
+      status.textContent = text;
+    }
+
+    function fillColors() {
+      var values = Brand.read();
+
+      colors.forEach(function (color) {
+        color.value = values[color.dataset.color];
+        color.nextElementSibling.textContent = color.value.toUpperCase();
+      });
+    }
+
+    function change(key, value) {
+      var values = Brand.read();
+
+      values[key] = value;
+      try {
+        Brand.write(values);
+        return true;
+      } catch (error) {
+        say('This browser has no room left. Try a smaller logo.');
+        return false;
+      }
+    }
+
+    function setLogo(file) {
+      if (TYPES.indexOf(file.type) < 0) {
+        say('Use a PNG, SVG, JPG or WebP file.');
+        return;
+      }
+      if (file.size > MAX_LOGO) {
+        say('The logo must be under 1 MB.');
+        return;
+      }
+
+      var reader = new FileReader();
+
+      reader.onload = function () {
+        if (change('logo', reader.result)) {
+          Brand.showLogo();
+          say('Logo saved.');
+        }
+      };
+      reader.onerror = function () { say('This file could not be read.'); };
+      reader.readAsDataURL(file);
+    }
+
+    pick.addEventListener('click', function () { input.click(); });
+
+    input.addEventListener('change', function () {
+      if (input.files.length) setLogo(input.files[0]);
+      input.value = '';
+    });
+
+    pick.addEventListener('drop', function (event) {
+      if (event.dataTransfer.files.length) setLogo(event.dataTransfer.files[0]);
+    });
+
+    ['dragover', 'drop'].forEach(function (type) {
+      window.addEventListener(type, function (event) { event.preventDefault(); });
+    });
+
+    colors.forEach(function (color) {
+      color.addEventListener('input', function () {
+        change(color.dataset.color, color.value);
+        color.nextElementSibling.textContent = color.value.toUpperCase();
+      });
+      color.addEventListener('change', function () { say('Colors saved.'); });
+    });
+
+    document.querySelector('[data-reset]').addEventListener('click', function () {
+      Brand.write(Object.assign({}, Brand.DEFAULTS));
+      Brand.showLogo();
+      fillColors();
+      say('Back to the original look.');
+    });
+
+    Brand.showLogo();
+    fillColors();
+  })();
+</script>
+</body>
+</html>

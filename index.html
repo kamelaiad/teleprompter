@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en" dir="ltr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Teleprompter</title>
+<meta name="description" content="A free teleprompter in your browser with voice recording, right-to-left text and your own logo and colors.">
+<link rel="icon" href="assets/favicon.svg">
+<link rel="stylesheet" href="assets/teleprompter.css">
+<script src="assets/brand.js"></script>
+<script src="assets/store.js"></script>
+</head>
+<body class="home">
+<main>
+  <header class="app-head">
+    <a class="app-logo" href="index.html" data-logo></a>
+    <nav><a class="on" href="index.html">Scripts</a><a href="settings.html">Settings</a></nav>
+  </header>
+
+  <h1>Scripts</h1>
+  <ul class="scripts"></ul>
+
+  <h2 id="form-title">New script</h2>
+  <form>
+    <label>Title<input name="title" dir="auto" maxlength="120" required></label>
+    <label>Script<textarea name="text" dir="auto" rows="10" placeholder="Paste your script. A line starting with 🟡 is a breath, and a line starting with 🔴 is a stop." required></textarea></label>
+    <div class="form-actions">
+      <button type="submit">Create</button>
+      <button class="reset" type="button" hidden>Cancel</button>
+    </div>
+    <p role="alert"></p>
+  </form>
+</main>
+<script>
+  (function () {
+    var form = document.querySelector('form');
+    var heading = document.getElementById('form-title');
+    var submit = form.querySelector('[type="submit"]');
+    var cancel = form.querySelector('.reset');
+    var note = form.querySelector('p');
+    var list = document.querySelector('.scripts');
+    var editing = '';
+
+    function rowButton(label, action) {
+      var button = document.createElement('button');
+
+      button.type = 'button';
+      button.className = 'reset';
+      button.textContent = label;
+      button.addEventListener('click', action);
+      return button;
+    }
+
+    function addRow(script) {
+      var row = document.createElement('li');
+      var link = document.createElement('a');
+      var name = document.createElement('b');
+      var count = document.createElement('span');
+
+      link.href = 'read.html?script=' + encodeURIComponent(script.id);
+      name.dir = 'auto';
+      name.textContent = script.title;
+      link.appendChild(name);
+      link.appendChild(count);
+      row.appendChild(link);
+      row.appendChild(rowButton('Edit', function () { edit(script); }));
+      row.appendChild(rowButton('Delete', function () { remove(script); }));
+      list.appendChild(row);
+
+      Store.takeCount(script.id).then(function (takes) {
+        count.textContent = takes === 1 ? '1 recording' : takes + ' recordings';
+      });
+    }
+
+    function show() {
+      list.textContent = '';
+      Store.scripts().forEach(addRow);
+    }
+
+    function edit(script) {
+      editing = script.id;
+      form.elements.title.value = script.title;
+      form.elements.text.value = script.text;
+      heading.textContent = 'Edit script';
+      submit.textContent = 'Save';
+      cancel.hidden = false;
+      heading.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function clearForm() {
+      editing = '';
+      form.reset();
+      heading.textContent = 'New script';
+      submit.textContent = 'Create';
+      cancel.hidden = true;
+    }
+
+    function remove(script) {
+      if (!confirm('Delete "' + script.title + '" and its recordings?')) return;
+      Store.deleteScript(script.id).then(function () {
+        if (editing === script.id) clearForm();
+        show();
+      });
+    }
+
+    form.addEventListener('submit', function (event) {
+      var title = form.elements.title.value.trim();
+      var text = form.elements.text.value.trim();
+
+      event.preventDefault();
+      if (!title || !text) {
+        note.textContent = 'Add a title and some text.';
+        return;
+      }
+      try {
+        if (editing) {
+          Store.updateScript(editing, title, text);
+          location.href = 'read.html?script=' + encodeURIComponent(editing);
+        } else {
+          location.href = 'read.html?script=' + encodeURIComponent(Store.addScript(title, text));
+        }
+      } catch (error) {
+        note.textContent = 'This browser has no room left to save the script.';
+      }
+    });
+
+    cancel.addEventListener('click', clearForm);
+
+    Brand.showLogo();
+    show();
+  })();
+</script>
+</body>
+</html>
